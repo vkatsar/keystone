@@ -1,3 +1,4 @@
+var keystone = require('../../../index');
 var chalk = require('chalk');
 var crypto = require('crypto');
 var fs = require('fs-extra');
@@ -35,7 +36,16 @@ module.exports = function (file, name) {
 	var logName = typeof file === 'string' ? file.replace(/^\.\//, '') : name;
 	var fileName = logName;
 	if (fileName.substr(-3) !== '.js') fileName += '.js';
+
+	var writeToDisk = keystone.get('write keystone files to disk');
+	var staticPath = keystone.get('static') || path.join(keystone.get('module root'), 'public');
+	var outputPath = path.resolve(path.join(staticPath, 'keystone', fileName));
+
 	function writeBundle (buff) {
+		if (writeToDisk) {
+			fs.outputFile(outputPath, buff, 'utf8');
+		}
+
 		if (devWriteBundles) {
 			fs.outputFile(path.resolve(path.join(__dirname, '../../bundles/js', fileName)), buff, 'utf8');
 		}
@@ -67,17 +77,24 @@ module.exports = function (file, name) {
 		if (devWriteDisc) {
 			opts.fullPaths = true;
 		}
-		if (name) {
+		if (/packages\.js/.test(outputPath)) {
 			b = browserify(opts);
-			b.require(file, { expose: name });
+			packages.forEach(function (i) {
+				b.require(i);
+			});
 		} else {
-			b = browserify(file, opts);
+			if (name) {
+				b = browserify(opts);
+				b.require(file, { expose: name });
+			} else {
+				b = browserify(file, opts);
+			}
+			b.transform(babelify);
+			b.exclude('FieldTypes');
+			packages.forEach(function (i) {
+				b.exclude(i);
+			});
 		}
-		b.transform(babelify);
-		b.exclude('FieldTypes');
-		packages.forEach(function (i) {
-			b.exclude(i);
-		});
 		if (devMode) {
 			b = watchify(b, { poll: 500 });
 		}
@@ -100,23 +117,30 @@ module.exports = function (file, name) {
 		});
 	}
 	function serve (req, res) {
-		if (!ready) {
-			build();
-			queue.push([req, res]);
-			return;
-		}
-		send(req, res);
+		fs.readFile(outputPath, (err, data) => {
+			if (!ready) {
+				build();
+
+				if (err || !data) {
+					return queue.push([req, res]);
+				}
+			}
+
+			src = src || data;
+			send(req, res);
+		});
 	}
 	function send (req, res) {
 		res.setHeader('Content-Type', 'application/javascript');
 		var etag = crypto.createHash('md5').update(src).digest('hex').slice(0, 6);
+
 		if (req.get && (etag === req.get('If-None-Match'))) {
 			res.status(304);
 			res.end();
 		}
 		else {
-			res.setHeader('ETag', etag);
-			res.setHeader('Vary', 'Accept-Encoding');
+			res.set('ETag', etag);
+			res.set('Vary', 'Accept-Encoding');
 			res.send(src);
 		}
 	}

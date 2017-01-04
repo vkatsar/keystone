@@ -40,6 +40,7 @@ module.exports = function createStaticRouter (keystone) {
 		fields: browserify(buildFieldTypesStream(keystone.fieldTypes), 'FieldTypes'),
 		signin: browserify('./Signin/index.js'),
 		admin: browserify('./App/index.js'),
+		packages: browserify(null, 'packages.js'),
 	};
 
 	// prebuild static resources on the next tick in keystone dev mode; this
@@ -48,6 +49,7 @@ module.exports = function createStaticRouter (keystone) {
 		bundles.fields.build();
 		bundles.signin.build();
 		bundles.admin.build();
+		bundles.packages.build();
 	}
 
 	/* Prepare LESS options */
@@ -72,6 +74,7 @@ module.exports = function createStaticRouter (keystone) {
 	router.get('/js/fields.js', bundles.fields.serve);
 	router.get('/js/signin.js', bundles.signin.serve);
 	router.get('/js/admin.js', bundles.admin.serve);
+	router.get('/js/packages.js', bundles.packages.serve);
 	router.use(express.static(path.resolve(__dirname + '/../../public')));
 
 	return router;
