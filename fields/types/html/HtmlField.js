@@ -54,9 +54,7 @@ module.exports = Field.create({
 
 		this._currentValue = this.props.value;
 		tinymce.init(opts);
-		if (evalDependsOn(this.props.dependsOn, this.props.values)) {
-			this.setState({ wysiwygActive: true });
-		}
+		this.setState({ wysiwygActive: true });
 	},
 
 	removeWysiwyg (state) {
